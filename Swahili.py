@@ -22,6 +22,27 @@ PORT = int(os.environ.get("PORT", 10000))
 translator = GoogleTranslator(source='auto', target='sw')
 
 
+from telegram.ext import ContextTypes, CommandHandler
+
+# Function ya Start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        message = (
+            "👋 Karibu kwenye *Mtranslator Bot!*\n\n"
+            "📌 Tuma maandishi, picha, au video yenye maandishi (caption) — bot hii itatafsiri moja kwa moja kwenda *Kiswahili*.\n\n"
+            "💬 Hakikisha ujumbe wako hauanzi na alama ya `/` ili bot isijaribu kuchukulia kama amri.\n\n"
+            "🤖 Imetengenezwa kwa kutumia *Python* + *Deep Translator* + *Telegram Bot API*.\n\n"
+            "🚀 Jaribu sasa kutuma ujumbe au picha!"
+        )
+
+        await update.message.reply_text(message, parse_mode="Markdown")
+    except Exception as e:
+        error_msg = f"Kuna hitilafu kwenye function ya `/start`: {str(e)}"
+        await context.bot.send_message(chat_id=-1002158955567, text=error_msg)
+        
+
+
+
 async def update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         message = update.message
@@ -107,6 +128,8 @@ async def main():
     global app  # ili itumike ndani ya `telegram()`
     app = Application.builder().token(BOT_TOKEN).build()
 
+    app.add_handler(CommandHandler("start", start))
+    
     # Ruhusu PRIVATE na MAGROUP (GROUP + SUPERGROUP)
     app.add_handler(
         MessageHandler(
@@ -148,7 +171,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 
 
 
