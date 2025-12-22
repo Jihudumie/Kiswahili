@@ -1,4 +1,5 @@
 import os
+from html import escape
 
 from telegram import (
     Update,
@@ -57,7 +58,9 @@ def make_video(file_id, caption=None):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Karibu!\nTuma maandishi au *album (media group)* — nitaifasiri kwenda Kiswahili.",
+        "👋 Karibu!\n"
+        "Tuma maandishi, picha, au *album (media group)* — "
+        "nitatafsiri kwenda *Kiswahili* pale tu inapohitajika.",
         parse_mode="Markdown"
     )
 
@@ -70,6 +73,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not message:
             return
 
+        # Media group kwanza
         if message.media_group_id:
             await handle_media_group(update, context)
             return
@@ -81,7 +85,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await translate_single_media(update, context)
 
     except Exception as e:
-        await context.bot.send_message(LOG_CHAT_ID, f"❌ handle_message error:\n{e}")
+        await context.bot.send_message(
+            LOG_CHAT_ID,
+            f"❌ handle_message error:\n{e}"
+        )
 
 
 # ================= TEXT =================
@@ -92,7 +99,9 @@ async def translate_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     translated = translator.translate(text).replace("Mwenyezi Mungu", "Allah")
-    if translated == text:
+
+    # Kama tayari ni Kiswahili
+    if translated.strip() == text.strip():
         return
 
     await update.message.reply_text(translated)
@@ -107,11 +116,27 @@ async def translate_single_media(update: Update, context: ContextTypes.DEFAULT_T
 
     translated = translator.translate(msg.caption).replace("Mwenyezi Mungu", "Allah")
 
+    # Skip kama tayari ni Kiswahili
+    if translated.strip() == msg.caption.strip():
+        return
+
     if msg.photo:
-        await msg.reply_photo(msg.photo[-1].file_id, caption=translated)
+        await msg.reply_photo(
+            msg.photo[-1].file_id,
+            caption=translated
+        )
 
     elif msg.video:
-        await msg.reply_video(msg.video.file_id, caption=translated)
+        await msg.reply_video(
+            msg.video.file_id,
+            caption=translated
+        )
+
+    elif msg.animation:
+        await msg.reply_animation(
+            msg.animation.file_id,
+            caption=translated
+        )
 
 
 # ================= MEDIA GROUP (JOB QUEUE) =================
@@ -124,11 +149,20 @@ async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
     media_groups = bot_data.setdefault("media_groups", {})
     captions = bot_data.setdefault("media_captions", {})
 
-    # caption ya kwanza tu
+    # Caption ya kwanza tu
     if group_id not in captions:
-        caption = msg.caption or ""
-        translated = translator.translate(caption).replace("Mwenyezi Mungu", "Allah")
-        captions[group_id] = translated
+        original = msg.caption
+
+        if not original:
+            captions[group_id] = None
+        else:
+            translated = translator.translate(original).replace("Mwenyezi Mungu", "Allah")
+
+            # Kama tayari ni Kiswahili → SKIP group
+            if translated.strip() == original.strip():
+                captions[group_id] = None
+            else:
+                captions[group_id] = escape(translated)
 
     caption = captions[group_id] if len(media_groups.get(group_id, [])) == 0 else None
 
@@ -141,11 +175,10 @@ async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     media_groups.setdefault(group_id, []).append(media)
 
-    # cancel job ya zamani
+    # Debounce using JobQueue
     for job in context.job_queue.get_jobs_by_name(str(group_id)):
         job.schedule_removal()
 
-    # schedule mpya
     context.job_queue.run_once(
         send_media_group,
         when=1,
@@ -163,13 +196,19 @@ async def send_media_group(context: ContextTypes.DEFAULT_TYPE):
     media_groups = bot_data.get("media_groups", {})
     captions = bot_data.get("media_captions", {})
 
+    # Kama caption ilikuwa SKIP → usitume chochote
+    if captions.get(group_id) is None:
+        media_groups.pop(group_id, None)
+        captions.pop(group_id, None)
+        return
+
     if group_id in media_groups:
         await context.bot.send_media_group(
             chat_id=chat_id,
             media=media_groups[group_id]
         )
 
-        del media_groups[group_id]
+        media_groups.pop(group_id, None)
         captions.pop(group_id, None)
 
 
@@ -207,7 +246,8 @@ async def main():
         uvicorn.Config(
             app=starlette_app,
             host="0.0.0.0",
-            port=PORT
+            port=PORT,
+            log_level="info"
         )
     )
 
