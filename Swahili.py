@@ -25,7 +25,7 @@ from starlette.responses import Response
 from starlette.routing import Route
 
 
-# ================= CONFIG =================
+# ==== CONFIG =================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 URL = os.getenv("URL")
@@ -36,7 +36,7 @@ LOG_CHAT_ID = -1002158955567
 translator = GoogleTranslator(source="auto", target="sw")
 
 
-# ================= HELPERS =================
+# ==== HELPERS =================
 
 def make_photo(file_id, caption=None):
     return InputMediaPhoto(
@@ -54,18 +54,22 @@ def make_video(file_id, caption=None):
     )
 
 
-# ================= COMMAND =================
+# ==== COMMAND =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (
+        "👋 *Karibu kwenye Mtranslator Bot!*\n\n"
+        "📌 Tuma maandishi au Picha, Videos yenye caption — nitaifasiri kwenda *Kiswahili*.\n\n"
+        "💬 Usitumie `/` kama si command.\n\n"
+        "🚀 Jaribu sasa!"
+    )
     await update.message.reply_text(
-        "👋 Karibu!\n"
-        "Tuma maandishi, picha, au *album (media group)* — "
-        "nitatafsiri kwenda *Kiswahili* pale tu inapohitajika.",
+        text,
         parse_mode="Markdown"
     )
 
 
-# ================= MAIN HANDLER =================
+# ==== MAIN HANDLER =================
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -91,7 +95,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-# ================= TEXT =================
+# ==== TEXT =================
 
 async def translate_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -107,7 +111,7 @@ async def translate_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(translated)
 
 
-# ================= SINGLE MEDIA =================
+# ==== SINGLE MEDIA =================
 
 async def translate_single_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
@@ -139,7 +143,7 @@ async def translate_single_media(update: Update, context: ContextTypes.DEFAULT_T
         )
 
 
-# ================= MEDIA GROUP (JOB QUEUE) =================
+# ==== MEDIA GROUP (JOB QUEUE) =================
 
 async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
@@ -212,7 +216,7 @@ async def send_media_group(context: ContextTypes.DEFAULT_TYPE):
         captions.pop(group_id, None)
 
 
-# ================= WEBHOOK =================
+# ==== WEBHOOK =================
 
 async def telegram(request: Request):
     data = await request.json()
@@ -220,7 +224,7 @@ async def telegram(request: Request):
     return Response()
 
 
-# ================= MAIN =================
+# ==== MAIN =================
 
 async def main():
     global app
