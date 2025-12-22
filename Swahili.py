@@ -1,136 +1,193 @@
 import os
-import asyncio
-from telegram.ext import Application, MessageHandler, ContextTypes, filters
-from telegram import Update, InputMediaPhoto, InputMediaVideo, InputMediaAudio
-from telegram.ext import Updater, ContextTypes
+
+from telegram import (
+    Update,
+    InputMediaPhoto,
+    InputMediaVideo,
+)
+from telegram.constants import ParseMode
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    CommandHandler,
+    ContextTypes,
+    filters,
+)
+
 from deep_translator import GoogleTranslator
 
-
-#WebHook
+# Webhook
 import uvicorn
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Route
 
+
+# ================= CONFIG =================
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 URL = os.getenv("URL")
+PORT = int(os.getenv("PORT", 10000))
 
-PORT = int(os.environ.get("PORT", 10000))
+LOG_CHAT_ID = -1002158955567
 
-# Kutafsiri ujumbe kwenda Kiswahili
-translator = GoogleTranslator(source='auto', target='sw')
+translator = GoogleTranslator(source="auto", target="sw")
 
 
-from telegram.ext import ContextTypes, CommandHandler
+# ================= HELPERS =================
 
-# Function ya Start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def make_photo(file_id, caption=None):
+    return InputMediaPhoto(
+        media=file_id,
+        caption=caption,
+        parse_mode=ParseMode.HTML
+    )
+
+
+def make_video(file_id, caption=None):
+    return InputMediaVideo(
+        media=file_id,
+        caption=caption,
+        parse_mode=ParseMode.HTML
+    )
+
+
+# ================= COMMAND =================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👋 Karibu!\nTuma maandishi au *album (media group)* — nitaifasiri kwenda Kiswahili.",
+        parse_mode="Markdown"
+    )
+
+
+# ================= MAIN HANDLER =================
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        message = (
-            "👋 Karibu kwenye *Mtranslator Bot!*\n\n"
-            "📌 Tuma maandishi, picha, au video yenye maandishi (caption) — bot hii itatafsiri moja kwa moja kwenda *Kiswahili*.\n\n"
-            "💬 Hakikisha ujumbe wako hauanzi na alama ya `/` ili bot isijaribu kuchukulia kama amri.\n\n"
-            "🤖 Imetengenezwa kwa kutumia *Python* + *Deep Translator* + *Telegram Bot API*.\n\n"
-            "🚀 Jaribu sasa kutuma ujumbe au picha!"
-        )
-
-        await update.message.reply_text(message, parse_mode="Markdown")
-    except Exception as e:
-        error_msg = f"Kuna hitilafu kwenye function ya `/start`: {str(e)}"
-        await context.bot.send_message(chat_id=-1002158955567, text=error_msg)
-        
-
-
-
-async def update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    try:
-        message = update.message
-
+        message = update.effective_message
         if not message:
             return
 
+        if message.media_group_id:
+            await handle_media_group(update, context)
+            return
+
         if message.text:
-            await tr_text(update, context)
-        else:
-            await tr_picha_video(update, context)
+            await translate_text(update, context)
+            return
+
+        await translate_single_media(update, context)
 
     except Exception as e:
-        error_msg = f"Kuna hitilafu kwenye function kuu ya `update`: {str(e)}"
-        await context.bot.send_message(chat_id=-1002158955567, text=error_msg)
-        
-        
+        await context.bot.send_message(LOG_CHAT_ID, f"❌ handle_message error:\n{e}")
 
 
-# Tafsiri ujumbe wa maandishi
-async def tr_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    try:
-        message = update.message.text
+# ================= TEXT =================
 
-        if message.startswith('/'):
-            return
+async def translate_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if text.startswith("/"):
+        return
 
-        translation_text = translator.translate(message).replace("Mwenyezi Mungu", "Allah")
+    translated = translator.translate(text).replace("Mwenyezi Mungu", "Allah")
+    if translated == text:
+        return
 
-        if message == translation_text:
-            return
-
-        asyncio.create_task(update.message.reply_text(translation_text, disable_web_page_preview=True))
-        return 
-
-    except Exception as e:
-        error_msg = f"Kuna hitilafu imejitokeza kwenye function ya Tafsiri ujumbe wa maandishi: {str(e)}"
-        asyncio.create_task(context.bot.send_message(chat_id=-1002158955567, text=error_msg))
+    await update.message.reply_text(translated)
 
 
-# Tafsiri picha au video na tuma
-async def tr_picha_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    try:
-        caption = update.message.caption
+# ================= SINGLE MEDIA =================
 
-        if not caption:
-            return
+async def translate_single_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message
+    if not msg.caption:
+        return
 
-        translation_text = translator.translate(caption).replace("Mwenyezi Mungu", "Allah")
+    translated = translator.translate(msg.caption).replace("Mwenyezi Mungu", "Allah")
 
-        if caption == translation_text:
-            return
+    if msg.photo:
+        await msg.reply_photo(msg.photo[-1].file_id, caption=translated)
 
-        elif update.message.photo:
-            for photo in update.message.photo:
-                asyncio.create_task(update.message.reply_photo(photo=photo.file_id, caption=translation_text))
-                return 
-
-        elif update.message.video:
-            asyncio.create_task(update.message.reply_video(video=update.message.video.file_id, caption=translation_text))
-            return 
-
-        elif update.message.animation:
-            asyncio.create_task(update.message.reply_animation(animation=update.message.animation.file_id, caption=translation_text))
-            return 
-
-    except Exception as e:
-        error_msg = f"Kuna hitilafu imejitokeza kwenye function ya Tafsiri picha/video: {str(e)}"
-        asyncio.create_task(context.bot.send_message(chat_id=-1002158955567, text=error_msg))
+    elif msg.video:
+        await msg.reply_video(msg.video.file_id, caption=translated)
 
 
-                    
+# ================= MEDIA GROUP (JOB QUEUE) =================
+
+async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.effective_message
+    group_id = msg.media_group_id
+
+    bot_data = context.application.bot_data
+    media_groups = bot_data.setdefault("media_groups", {})
+    captions = bot_data.setdefault("media_captions", {})
+
+    # caption ya kwanza tu
+    if group_id not in captions:
+        caption = msg.caption or ""
+        translated = translator.translate(caption).replace("Mwenyezi Mungu", "Allah")
+        captions[group_id] = translated
+
+    caption = captions[group_id] if len(media_groups.get(group_id, [])) == 0 else None
+
+    if msg.photo:
+        media = make_photo(msg.photo[-1].file_id, caption)
+    elif msg.video:
+        media = make_video(msg.video.file_id, caption)
+    else:
+        return
+
+    media_groups.setdefault(group_id, []).append(media)
+
+    # cancel job ya zamani
+    for job in context.job_queue.get_jobs_by_name(str(group_id)):
+        job.schedule_removal()
+
+    # schedule mpya
+    context.job_queue.run_once(
+        send_media_group,
+        when=1,
+        data={"chat_id": msg.chat.id, "group_id": group_id},
+        name=str(group_id),
+    )
 
 
-async def telegram(request: Request) -> Response:
-    """Shughulikia webhook requests kutoka Telegram"""
+async def send_media_group(context: ContextTypes.DEFAULT_TYPE):
+    data = context.job.data
+    chat_id = data["chat_id"]
+    group_id = data["group_id"]
+
+    bot_data = context.application.bot_data
+    media_groups = bot_data.get("media_groups", {})
+    captions = bot_data.get("media_captions", {})
+
+    if group_id in media_groups:
+        await context.bot.send_media_group(
+            chat_id=chat_id,
+            media=media_groups[group_id]
+        )
+
+        del media_groups[group_id]
+        captions.pop(group_id, None)
+
+
+# ================= WEBHOOK =================
+
+async def telegram(request: Request):
     data = await request.json()
-    await app.update_queue.put(Update.de_json(data=data, bot=app.bot))
+    await app.update_queue.put(Update.de_json(data, app.bot))
     return Response()
 
 
+# ================= MAIN =================
+
 async def main():
-    global app  # ili itumike ndani ya `telegram()`
+    global app
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    
-    # Ruhusu PRIVATE na MAGROUP (GROUP + SUPERGROUP)
     app.add_handler(
         MessageHandler(
             filters.ALL & (
@@ -138,40 +195,30 @@ async def main():
                 filters.ChatType.GROUP |
                 filters.ChatType.SUPERGROUP
             ),
-            update
+            handle_message
         )
     )
 
-    # Tengeneza Starlette app
     starlette_app = Starlette(
-        routes=[
-            Route("/telegram", telegram, methods=["POST"]),
-        ]
+        routes=[Route("/telegram", telegram, methods=["POST"])]
     )
 
-    # Tengeneza uvicorn server
-    webserver = uvicorn.Server(
-        config=uvicorn.Config(
+    server = uvicorn.Server(
+        uvicorn.Config(
             app=starlette_app,
             host="0.0.0.0",
-            port=PORT,
-            log_level="info"
+            port=PORT
         )
     )
 
-    # Weka webhook
-    await app.bot.set_webhook(url=f"{URL}/telegram")
+    await app.bot.set_webhook(f"{URL}/telegram")
 
-    # Anzisha bot na webserver
     async with app:
         await app.start()
-        await webserver.serve()
+        await server.serve()
         await app.stop()
 
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
-
-
-
-
