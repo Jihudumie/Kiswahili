@@ -1,1 +1,1 @@
-web: python Swahili.py
+web: python main.py
