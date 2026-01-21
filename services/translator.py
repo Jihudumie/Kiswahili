@@ -25,5 +25,5 @@ class TranslatorService:
         return translated.strip() != original.strip()
 
 
-# Global instance
-translator_service = TranslatorServic
+# Global instance - ✅ SAHIHI SASA
+translator_service = TranslatorService()
