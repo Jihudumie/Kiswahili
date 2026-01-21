@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command"""
     text = (
-        "👋 *Karibu kwenye Mtranslator Bot!*\n\n"
+        "👋 *Maasha Allah Karibu kwenye Mtranslator Bot!*\n\n"
         "📌 Tuma maandishi au Picha, Video zenye caption — nitaifasiri kwenda *Kiswahili*.\n\n"
         "💬 Usitumie `/` kama si command.\n\n"
         "🚀 Jaribu sasa!"
