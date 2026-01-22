@@ -40,6 +40,20 @@ async def translate_single_media(update: Update, context: ContextTypes.DEFAULT_T
             caption=translated,
             message_thread_id=msg.message_thread_id
         )
+        
+    if msg.document:
+        await msg.reply_document(
+            msg.document.file_id,
+            caption=translated,
+            message_thread_id=msg.message_thread_id
+        )
+        
+    if msg.audio:
+        await msg.reply_audio(
+            msg.audio.file_id,
+            caption=translated,
+            message_thread_id=msg.message_thread_id
+        )
 
 
 async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
