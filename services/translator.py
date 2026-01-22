@@ -4,26 +4,39 @@ from config import TRANSLATION_SOURCE, TRANSLATION_TARGET
 
 class TranslatorService:
     def __init__(self):
+        # Tengeneza kifaa cha kutafsiri kwa kutumia GoogleTranslator
+        # source = lugha ya awali
+        # target = lugha lengwa
         self.translator = GoogleTranslator(
             source=TRANSLATION_SOURCE,
             target=TRANSLATION_TARGET
         )
     
     def translate(self, text: str) -> str:
-        """Translate text and apply custom replacements"""
+        """
+        Tafsiri maandishi na fanya marekebisho maalum baada ya tafsiri
+        """
+        # Kama hakuna maandishi, rudisha maandishi tupu
         if not text:
             return ""
         
+        # Tafsiri maandishi kwa kutumia Google Translator
         translated = self.translator.translate(text)
-        # Custom replacements
+
+        # Marekebisho maalum ya maneno baada ya tafsiri
+        # Badilisha "Mwenyezi Mungu" kuwa "Allah"
         translated = translated.replace("Mwenyezi Mungu", "Allah")
         
         return translated
     
     def should_translate(self, original: str, translated: str) -> bool:
-        """Check if translation is different from original"""
+        """
+        Kagua kama tafsiri ni tofauti na maandishi ya awali
+        Inarudisha True kama kuna tofauti, vinginevyo False
+        """
         return translated.strip() != original.strip()
 
 
-# Global instance - ✅ SAHIHI SASA
+'''Instance ya pamoja (global) ya TranslatorService'''
+# Inatumika sehemu mbalimbali za programu bila kuunda upya
 translator_service = TranslatorService()
