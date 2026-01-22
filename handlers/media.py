@@ -41,14 +41,14 @@ async def translate_single_media(update: Update, context: ContextTypes.DEFAULT_T
             message_thread_id=msg.message_thread_id
         )
         
-    if msg.document:
+    elif msg.document:
         await msg.reply_document(
             msg.document.file_id,
             caption=translated,
             message_thread_id=msg.message_thread_id
         )
         
-    if msg.audio:
+    elif msg.audio:
         await msg.reply_audio(
             msg.audio.file_id,
             caption=translated,
