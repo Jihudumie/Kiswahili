@@ -56,9 +56,8 @@ async def translate_single_media(update: Update, context: ContextTypes.DEFAULT_T
         )
 
 
-# ==== MEDIA GROUP (JOB QUEUE) =================
-
 async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Collect media group items and schedule sending"""
     msg = update.effective_message
     group_id = msg.media_group_id
 
@@ -66,22 +65,24 @@ async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
     media_groups = bot_data.setdefault("media_groups", {})
     captions = bot_data.setdefault("media_captions", {})
 
-    # Caption ya kwanza tu
+    # Process caption only once (first message)
     if group_id not in captions:
         original = msg.caption
 
         if not original:
             captions[group_id] = None
         else:
-            translated = translator.translate(original).replace("Mwenyezi Mungu", "Allah")
+            translated = translator_service.translate(original)
 
-            if translated.strip() == original.strip():
-                captions[group_id] = None
-            else:
+            if translator_service.should_translate(original, translated):
                 captions[group_id] = escape(translated)
+            else:
+                captions[group_id] = None
 
+    # Caption only on first media item
     caption = captions[group_id] if len(media_groups.get(group_id, [])) == 0 else None
 
+    # Create media object
     if msg.photo:
         media = make_photo(msg.photo[-1].file_id, caption)
     elif msg.video:
@@ -91,23 +92,25 @@ async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     media_groups.setdefault(group_id, []).append(media)
 
-    # Debounce JobQueue
+    # Debounce: remove old jobs
     for job in context.job_queue.get_jobs_by_name(str(group_id)):
         job.schedule_removal()
 
+    # Schedule new send job
     context.job_queue.run_once(
         send_media_group,
-        when=1,
+        when=MEDIA_GROUP_DEBOUNCE_SECONDS,
         data={
             "chat_id": msg.chat.id,
             "group_id": group_id,
-            "thread_id": msg.message_thread_id,  # 🔑 topic support
+            "thread_id": msg.message_thread_id,
         },
         name=str(group_id),
     )
 
 
 async def send_media_group(context: ContextTypes.DEFAULT_TYPE):
+    """Send collected media group"""
     data = context.job.data
     chat_id = data["chat_id"]
     group_id = data["group_id"]
@@ -117,22 +120,28 @@ async def send_media_group(context: ContextTypes.DEFAULT_TYPE):
     media_groups = bot_data.get("media_groups", {})
     captions = bot_data.get("media_captions", {})
 
-    # Kama caption ilikuwa SKIP
+    # Skip if no translation needed
     if captions.get(group_id) is None:
         media_groups.pop(group_id, None)
         captions.pop(group_id, None)
         return
 
+    # Send media group
     if group_id in media_groups:
-        await context.bot.send_media_group(
-            chat_id=chat_id,
-            media=media_groups[group_id],
-            message_thread_id=thread_id
-        )
-
-        media_groups.pop(group_id, None)
-        captions.pop(group_id, None)
-
+        try:
+            await context.bot.send_media_group(
+                chat_id=chat_id,
+                media=media_groups[group_id],
+                message_thread_id=thread_id
+            )
+        except Exception as e:
+            await context.bot.send_message(
+                LOG_CHAT_ID,
+                f"❌ send_media_group error:\n{e}"
+            )
+        finally:
+            media_groups.pop(group_id, None)
+            captions.pop(group_id, None)
 
 
 
