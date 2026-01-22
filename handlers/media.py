@@ -130,27 +130,6 @@ async def send_media_group(context: ContextTypes.DEFAULT_TYPE):
             captions.pop(group_id, None)
 
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Main message router"""
-    try:
-        message = update.effective_message
-        if not message:
-            return
 
-        # Route to appropriate handler
-        if message.media_group_id:
-            await handle_media_group(update, context)
-            return
 
-        if message.text:
-            from handlers.text import translate_text
-            await translate_text(update, context)
-            return
 
-        await translate_single_media(update, context)
-
-    except Exception as e:
-        await context.bot.send_message(
-            LOG_CHAT_ID,
-            f"❌ handle_message error:\n{e}"
-  )
