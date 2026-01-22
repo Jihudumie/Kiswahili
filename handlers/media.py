@@ -81,6 +81,7 @@ async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     # Caption only on first media item
     caption = captions[group_id] if len(media_groups.get(group_id, [])) == 0 else None
+    caption = caption[:1024]
 
     # Create media object
     if msg.photo:
