@@ -15,7 +15,7 @@ from telegram.ext import (
 
 from config import BOT_TOKEN, URL, PORT
 from handlers.commands import start
-from handlers.media import handle_message
+from handlers.update import handle_message
 
 
 # Global application instance
