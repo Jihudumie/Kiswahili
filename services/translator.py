@@ -13,32 +13,35 @@ class TranslatorService:
             target=TRANSLATION_TARGET
         )
         
-        # Pattern ya kutambua viungo vya social media
+        # Pattern ya kutambua na KUONDOA mistari yote ya social media
+        # Inaondoa mstari mzima ukiwa na kiungo au bila kiungo
         self.social_media_pattern = re.compile(
-            r'🔗\s*(Telegram|X|WhatsApp|Instagram|Facebook|YouTube|TikTok|Twitter):\s*\S+',
+            r'🔗\s*(Telegram|X|WhatsApp|Instagram|Facebook|YouTube|TikTok|Twitter):\s*.*',
             re.IGNORECASE
         )
         
         # Pattern ya kutambua hashtags
         self.hashtag_pattern = re.compile(r'#\w+')
     
-    def _extract_protected_content(self, text: str) -> tuple[str, dict]:
+    def _remove_social_links(self, text: str) -> str:
         """
-        Ondoa viungo vya social media na hashtags kabla ya kutafsiri
-        Rudisha text iliyosafishwa na dictionary ya kumbukumbu
+        Ondoa mistari yote ya viungo vya social media
+        """
+        # Ondoa kila mstari unaoanzia na emoji ya 🔗
+        text = self.social_media_pattern.sub('', text)
+        
+        # Ondoa mistari mitupu iliyobaki
+        lines = [line for line in text.split('\n') if line.strip()]
+        
+        return '\n'.join(lines)
+    
+    def _extract_hashtags(self, text: str) -> tuple[str, dict]:
+        """
+        Ondoa hashtags kabla ya kutafsiri
+        Rudisha text iliyosafishwa na dictionary ya hashtags
         """
         protected = {}
         counter = 0
-        
-        # Hifadhi viungo vya social media
-        def replace_social_link(match):
-            nonlocal counter
-            placeholder = f"___SOCIALLINK{counter}___"
-            protected[placeholder] = match.group(0)
-            counter += 1
-            return placeholder
-        
-        text = self.social_media_pattern.sub(replace_social_link, text)
         
         # Hifadhi hashtags
         def replace_hashtag(match):
@@ -52,9 +55,9 @@ class TranslatorService:
         
         return text, protected
     
-    def _restore_protected_content(self, text: str, protected: dict) -> str:
+    def _restore_hashtags(self, text: str, protected: dict) -> str:
         """
-        Rudisha viungo na hashtags zilizohifadhiwa
+        Rudisha hashtags zilizohifadhiwa
         """
         for placeholder, original in protected.items():
             text = text.replace(placeholder, original)
@@ -68,17 +71,19 @@ class TranslatorService:
         if not text:
             return ""
         
-        # Ondoa na hifadhi social media links na hashtags
-        cleaned_text, protected_content = self._extract_protected_content(text)
+        # HATUA 1: Ondoa mistari yote ya social media links
+        text = self._remove_social_links(text)
         
-        # Tafsiri maandishi iliyosafishwa kwa kutumia Google Translator
+        # HATUA 2: Ondoa na hifadhi hashtags
+        cleaned_text, protected_hashtags = self._extract_hashtags(text)
+        
+        # HATUA 3: Tafsiri maandishi iliyosafishwa
         translated = self.translator.translate(cleaned_text)
         
-        # Rudisha social media links na hashtags
-        translated = self._restore_protected_content(translated, protected_content)
+        # HATUA 4: Rudisha hashtags
+        translated = self._restore_hashtags(translated, protected_hashtags)
 
-        # Marekebisho maalum ya maneno baada ya tafsiri
-        # Badilisha "Mwenyezi Mungu" kuwa "Allah"
+        # HATUA 5: Marekebisho maalum ya maneno baada ya tafsiri
         translated = translated.replace("Mwenyezi Mungu", "Allah")
         
         return translated
