@@ -16,9 +16,6 @@ class TranslatorService:
         return cleaned.strip()
 
     def protect_hashtags(self, text: str):
-        """
-        Linda hashtags zisitafsiriwe
-        """
         hashtags = re.findall(r"#\w+", text)
         protected_text = text
 
@@ -30,9 +27,6 @@ class TranslatorService:
         return protected_text, hashtags
 
     def restore_hashtags(self, text: str, hashtags: list):
-        """
-        Rudisha hashtags baada ya tafsiri
-        """
         for i, tag in enumerate(hashtags):
             text = text.replace(f"__HASHTAG_{i}__", tag)
         return text
@@ -41,22 +35,18 @@ class TranslatorService:
         if not text:
             return ""
 
-        # 1. Safisha social links
         cleaned_text = self.clean_text(text)
-
-        # 2. Linda hashtags
         protected_text, hashtags = self.protect_hashtags(cleaned_text)
 
-        # 3. Tafsiri
         try:
             translated = self.translator.translate(protected_text)
         except Exception:
             return cleaned_text
 
-        # 4. Rudisha hashtags
         translated = self.restore_hashtags(translated, hashtags)
-
-        # 5. Marekebisho maalum
         translated = translated.replace("Mwenyezi Mungu", "Allah")
-
         return translated
+
+
+# 👇 HII NDIO ILIYOKOSEKANA
+translator_service = TranslatorService()
