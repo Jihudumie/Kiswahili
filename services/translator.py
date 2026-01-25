@@ -32,7 +32,7 @@ class TranslatorService:
         
         def replace_hashtag(match):
             nonlocal counter
-            placeholder = f"___HASHTAG{counter}___"
+            placeholder = f"HASHTAG{counter}PLACEHOLDER"
             protected[placeholder] = match.group(0)
             counter += 1
             return placeholder
@@ -46,29 +46,9 @@ class TranslatorService:
             text = text.replace(placeholder, original)
         return text
     
-    def _preserve_newlines(self, text: str) -> tuple[str, list]:
-        """
-        Hifadhi mistari mipya kwa kubadilisha kuwa placeholders
-        Rudisha text iliyobadilishwa na orodha ya positions
-        """
-        # Hifadhi aya (mistari mipya maradufu)
-        text = text.replace('\n\n', '___PARAGRAPH___')
-        
-        # Hifadhi mistari mipya ya kawaida
-        text = text.replace('\n', '___NEWLINE___')
-        
-        return text
-    
-    def _restore_newlines(self, text: str) -> str:
-        """Rudisha mistari mipya"""
-        # Rudisha kwa mpangilio sahihi
-        text = text.replace('___PARAGRAPH___', '\n\n')
-        text = text.replace('___NEWLINE___', '\n')
-        return text
-    
     def translate(self, text: str) -> str:
         """
-        Tafsiri maandishi na fanya marekebisho maalum baada ya tafsiri
+        Tafsiri maandishi kwa kuhifadhi muundo wa mistari
         """
         if not text:
             return ""
@@ -76,34 +56,49 @@ class TranslatorService:
         # HATUA 1: Ondoa mistari yote ya social media links
         text = self._remove_social_links(text)
         
-        # HATUA 2: Hifadhi mistari mipya
-        text = self._preserve_newlines(text)
+        # HATUA 2: Gawanya maandishi katika aya (separated by \n\n)
+        paragraphs = text.split('\n\n')
+        translated_paragraphs = []
         
-        # HATUA 3: Ondoa na hifadhi hashtags
-        cleaned_text, protected_hashtags = self._extract_hashtags(text)
+        for paragraph in paragraphs:
+            if not paragraph.strip():
+                continue
+            
+            # Gawanya kila aya katika mistari
+            lines = paragraph.split('\n')
+            translated_lines = []
+            
+            for line in lines:
+                if not line.strip():
+                    continue
+                
+                # HATUA 3: Ondoa na hifadhi hashtags
+                cleaned_line, protected_hashtags = self._extract_hashtags(line)
+                
+                # HATUA 4: Tafsiri mstari
+                try:
+                    translated_line = self.translator.translate(cleaned_line)
+                except Exception as e:
+                    print(f"Translation error: {e}")
+                    translated_line = cleaned_line
+                
+                # HATUA 5: Rudisha hashtags
+                translated_line = self._restore_hashtags(translated_line, protected_hashtags)
+                
+                translated_lines.append(translated_line)
+            
+            # Unganisha mistari ya aya kwa \n
+            translated_paragraph = '\n'.join(translated_lines)
+            translated_paragraphs.append(translated_paragraph)
         
-        # HATUA 4: Tafsiri maandishi iliyosafishwa
-        try:
-            translated = self.translator.translate(cleaned_text)
-        except Exception as e:
-            # Kama tafsiri imeshindwa, rudisha text ya awali
-            print(f"Translation error: {e}")
-            return text
+        # HATUA 6: Unganisha aya kwa \n\n
+        translated = '\n\n'.join(translated_paragraphs)
         
-        # HATUA 5: Rudisha mistari mipya
-        translated = self._restore_newlines(translated)
-        
-        # HATUA 6: Rudisha hashtags
-        translated = self._restore_hashtags(translated, protected_hashtags)
-
         # HATUA 7: Marekebisho maalum ya maneno baada ya tafsiri
         translated = translated.replace("Mwenyezi Mungu", "Allah")
         
-        # HATUA 8: Safisha nafasi za ziada (bila kuathiri mistari mipya)
-        # Ondoa nafasi nyingi za mfululizo katika mstari mmoja
-        lines = translated.split('\n')
-        cleaned_lines = [re.sub(r' {2,}', ' ', line.strip()) for line in lines]
-        translated = '\n'.join(cleaned_lines)
+        # HATUA 8: Safisha nafasi za ziada
+        translated = re.sub(r' {2,}', ' ', translated)
         
         return translated.strip()
     
