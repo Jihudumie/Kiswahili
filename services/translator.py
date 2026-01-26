@@ -31,7 +31,7 @@ class TranslatorService:
         text = self.social_media_pattern.sub('', text)
         
         # Ondoa mistari mitupu iliyobaki
-        lines = [line for line in text.split('\n') if line.strip()]
+        lines = [line for line in text.split('\n') if line]
         
         return '\n'.join(lines)
     
@@ -72,7 +72,7 @@ class TranslatorService:
             return ""
         
         # HATUA 1: Ondoa mistari yote ya social media links
-        #text = self._remove_social_links(text)
+        text = self._remove_social_links(text)
         
         # HATUA 2: Ondoa na hifadhi hashtags
         cleaned_text, protected_hashtags = self._extract_hashtags(text)
