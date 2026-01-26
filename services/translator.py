@@ -1,3 +1,4 @@
+import re
 from deep_translator import GoogleTranslator
 from config import TRANSLATION_SOURCE, TRANSLATION_TARGET
 
